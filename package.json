@@ -1,8 +1,12 @@
 {
   "name": "npm-shrinkwrap-check",
-  "version": "0.0.5",
-  "description": "Checks that package.json and npm-shrinkwrap.json are in sync.",
-  "main": "cli.js",
+  "version": "0.0.6",
+  "description": "Checks that package.json and npm-shrinkwrap.json are always in sync.",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:teambox/npm-shrinkwrap-check"
+  },
+  "main": "bin/cli",
   "bin": {
     "npm-shrinkwrap-check": "bin/cli"
   },
