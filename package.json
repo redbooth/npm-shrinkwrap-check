@@ -1,0 +1,17 @@
+{
+  "name": "npm-shrinkwrap-check",
+  "version": "0.0.5",
+  "description": "Checks that package.json and npm-shrinkwrap.json are in sync.",
+  "main": "cli.js",
+  "bin": {
+    "npm-shrinkwrap-check": "bin/cli"
+  },
+  "keywords": [
+    "shrinkwrap"
+  ],
+  "author": "Redbooth",
+  "license": "MIT",
+  "dependencies": {
+    "array-difference": "0.0.1"
+  }
+}

@@ -1,0 +1,53 @@
+#!/usr/bin/env node
+
+var diff = require('array-difference'),
+    fs = require('fs'),
+    packageJSON,
+    shrinkwrapJSON,
+    depDiff,
+    packageDeps,
+    shrinkwrapDeps;
+
+function loadJSON(path) {
+  if (!fs.existsSync(path)) {
+    process.stderr.write('Error "' + path + '" not found' + '\n');
+    return null;
+  }
+
+  var json;
+
+  try {
+    json = require(path);
+  } catch (e) {
+    process.stderr.write('Error parsing JSON "' + path + '"\n');
+  }
+
+  return json || null;
+}
+
+
+packageJSON = loadJSON(process.cwd() + '/package.json');
+shrinkwrapJSON = loadJSON(process.cwd() + '/npm-shrinkwrap.json');
+
+if (!packageJSON || !shrinkwrapJSON) {
+  process.exit(1);
+}
+
+packageDeps = Object.keys(packageJSON.dependencies || []);
+shrinkwrapDeps = Object.keys(shrinkwrapJSON.dependencies || []);
+
+depDiff = diff(packageDeps, shrinkwrapDeps);
+
+depDiff = depDiff.filter(function(dependency) {
+  return (packageDeps.indexOf(dependency) > -1);
+});
+
+if (depDiff.length) {
+  process.stderr.write('package.json and npm-shrinkwrap.json out of sync\n');
+
+  depDiff .map(function (dependency) {
+    process.stderr.write(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json\n');
+  });
+}
+
+process.exit(+(depDiff.length !== 0));
