@@ -11,19 +11,6 @@ Install it globally running
 
 `$ sudo npm install -g npm-shrinkwrap-check`
 
-add as git hook
-===============
-
-It is a good practice that you add `npm-shrinkwrap-check` as a ![git hook](http://git-scm.com/docs/githooks).
-
-To add a `pre-push` hook create a `.git/hooks/pre-push` in your repo with the following:
-
-```sh
-#!/bin/sh
-
-npm-shrinkwrap-check
-``
-
 usage
 =====
 
@@ -35,3 +22,19 @@ This will perform the following checks:
 
 * Both `package.json` and `npm-shrinkwrap.json` exist.
 * There are no dependencies in `package.json` that are **not** contained in `npm-shrinkwrap.json`
+
+add as git hook
+===============
+
+It is a good practice that you add `npm-shrinkwrap-check` as a [git hook](http://git-scm.com/docs/githooks).
+
+To add a `pre-push` hook create a `.git/hooks/pre-push` in your repo with the following:
+
+```sh
+#!/bin/sh
+
+npm-shrinkwrap-check
+```
+
+This will prevent you from pushing out-of-sync `package.json` and `npm-shrinkwrap.json` files to your repo.
+
