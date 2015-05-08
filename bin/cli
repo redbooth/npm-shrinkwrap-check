@@ -46,7 +46,7 @@ if (depDiff.length) {
   process.stderr.write('package.json and npm-shrinkwrap.json out of sync\n');
 
   depDiff .map(function (dependency) {
-    process.stderr.write(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json\n');
+    process.stderr.write(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json\n');
   });
 }
 
