@@ -2,11 +2,14 @@
 
 var diff = require('array-difference'),
     fs = require('fs'),
+    optimist = require('optimist'),
+    argv,
     packageJSON,
     shrinkwrapJSON,
     depDiff,
     packageDeps,
-    shrinkwrapDeps;
+    shrinkwrapDeps,
+    packageDevDeps;
 
 function loadJSON(path) {
   if (!fs.existsSync(path)) {
@@ -25,6 +28,19 @@ function loadJSON(path) {
   return json || null;
 }
 
+argv = optimist
+  .usage('Ensure package.json and npm-shrinkwrap.json are in sync')
+  .alias('d', 'dev')
+  .alias('h', 'help')
+  .describe('d', 'Check devDependencies')
+  .describe('h', 'Show this help message')
+  .argv;
+
+if (argv.help) {
+  optimist.showHelp();
+  process.exit(0);
+}
+
 
 packageJSON = loadJSON(process.cwd() + '/package.json');
 shrinkwrapJSON = loadJSON(process.cwd() + '/npm-shrinkwrap.json');
@@ -34,6 +50,12 @@ if (!packageJSON || !shrinkwrapJSON) {
 }
 
 packageDeps = Object.keys(packageJSON.dependencies || []);
+
+if (argv.dev) {
+  packageDevDeps = Object.keys(packageJSON.devDependencies || []);
+  packageDeps = packageDeps.concat(packageDevDeps);
+}
+
 shrinkwrapDeps = Object.keys(shrinkwrapJSON.dependencies || []);
 
 depDiff = diff(packageDeps, shrinkwrapDeps);
@@ -45,7 +67,7 @@ depDiff = depDiff.filter(function(dependency) {
 if (depDiff.length) {
   process.stderr.write('package.json and npm-shrinkwrap.json out of sync\n');
 
-  depDiff .map(function (dependency) {
+  depDiff.map(function (dependency) {
     process.stderr.write(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json\n');
   });
 }
