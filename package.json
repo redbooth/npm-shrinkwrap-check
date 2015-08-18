@@ -16,6 +16,7 @@
   "author": "Redbooth",
   "license": "MIT",
   "dependencies": {
-    "array-difference": "0.0.1"
+    "array-difference": "0.0.1",
+    "optimist": "^0.6.1"
   }
 }
