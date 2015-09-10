@@ -9,7 +9,7 @@ installation
 
 Install it globally running
 
-`$ sudo npm install -g npm-shrinkwrap-check`
+`$ npm install -g npm-shrinkwrap-check`
 
 usage
 =====
