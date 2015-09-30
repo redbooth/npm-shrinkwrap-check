@@ -60,15 +60,26 @@ shrinkwrapDeps = Object.keys(shrinkwrapJSON.dependencies || []);
 
 depDiff = diff(packageDeps, shrinkwrapDeps);
 
-depDiff = depDiff.filter(function(dependency) {
-  return (packageDeps.indexOf(dependency) > -1);
-});
-
 if (depDiff.length) {
+  var notInShrinkwrap,
+      notInPackage;
+
   process.stderr.write('package.json and npm-shrinkwrap.json out of sync\n');
 
-  depDiff.map(function (dependency) {
+  notInPackage = depDiff.filter(function(dependency) {
+    return (packageDeps.indexOf(dependency) === -1);
+  });
+
+  notInShrinkwrap = depDiff.filter(function(dependency) {
+    return (shrinkwrapDeps.indexOf(dependency) === -1);
+  });
+
+  notInShrinkwrap.map(function (dependency) {
     process.stderr.write(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json\n');
+  });
+
+  notInPackage.map(function (dependency) {
+    process.stderr.write(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json\n');
   });
 }
 
