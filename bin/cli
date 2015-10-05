@@ -34,10 +34,8 @@ argv = optimist
   .usage('Ensure package.json and npm-shrinkwrap.json are in sync')
   .alias('d', 'dev')
   .alias('h', 'help')
-  .alias('s', 'semver')
   .describe('d', 'Check devDependencies')
   .describe('h', 'Show this help message')
-  .describe('s', 'Check semver')
   .argv;
 
 if (argv.help) {
@@ -87,17 +85,15 @@ if (depDiff.length) {
   });
 }
 
-if (argv.semver) {
-  packageDeps.forEach(function(dependency) {
-    var range = packageJSON.dependencies[dependency] ||
-          (argv.dev && packageJSON.devDependencies[dependency]);
-    var version = (shrinkwrapJSON.dependencies[dependency] || {}).version;
+packageDeps.forEach(function(dependency) {
+  var range = packageJSON.dependencies[dependency] ||
+        (argv.dev && packageJSON.devDependencies[dependency]);
+  var version = (shrinkwrapJSON.dependencies[dependency] || {}).version;
 
-    if (version && semver.validRange(range) && !semver.satisfies(version, range)) {
-      semverSatisfied = false;
-      process.stderr.write(' * ' + dependency + '@' + version + ' in npm-shrinkwrap.json does not satisfy range ' + range + ' in package.json\n');
-    }
-  });
-}
+  if (version && semver.validRange(range) && !semver.satisfies(version, range)) {
+    semverSatisfied = false;
+    process.stderr.write(' * ' + dependency + '@' + version + ' in npm-shrinkwrap.json does not satisfy range ' + range + ' in package.json\n');
+  }
+});
 
 process.exit(+(depDiff.length !== 0 || !semverSatisfied));
