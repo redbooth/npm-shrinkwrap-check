@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 var diff = require('array-difference'),
+    glob = require('glob'),
+    uniq = require('lodash.uniq'),
     fs = require('fs'),
     optimist = require('optimist'),
     semver = require('semver'),
@@ -34,6 +36,7 @@ argv = optimist
   .usage('Ensure package.json and npm-shrinkwrap.json are in sync')
   .alias('d', 'dev')
   .alias('h', 'help')
+  .alias('3', 'v3')
   .describe('d', 'Check devDependencies')
   .describe('h', 'Show this help message')
   .argv;
@@ -58,6 +61,16 @@ if (argv.dev) {
   packageDeps = packageDeps.concat(packageDevDeps);
 }
 
+// for npm@3
+if (argv.v3) {
+  glob.sync(process.cwd() + "/node_modules/**/package.json").forEach(function(pkgPath) {
+    var pkg = loadJSON(pkgPath);
+    var deps = Object.keys(pkg.dependencies || []);
+    packageDeps = packageDeps.concat(deps);
+  });
+}
+
+packageDeps = uniq(packageDeps);
 shrinkwrapDeps = Object.keys(shrinkwrapJSON.dependencies || []);
 
 depDiff = diff(packageDeps, shrinkwrapDeps);
@@ -87,7 +100,8 @@ if (depDiff.length) {
 
 packageDeps.forEach(function(dependency) {
   var range = packageJSON.dependencies[dependency] ||
-        (argv.dev && packageJSON.devDependencies[dependency]);
+        (argv.dev && packageJSON.devDependencies && packageJSON.devDependencies[dependency]);
+  if (!range) return; // sub dependencies
   var version = (shrinkwrapJSON.dependencies[dependency] || {}).version;
 
   if (version && semver.validRange(range) && !semver.satisfies(version, range)) {
