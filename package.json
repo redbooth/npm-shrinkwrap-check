@@ -17,8 +17,8 @@
   "license": "MIT",
   "dependencies": {
     "array-difference": "0.0.1",
-    "glob": "^7.0.3",
-    "lodash.uniq": "^4.2.1",
+    "glob": "7.0.3",
+    "lodash.uniq": "4.2.1",
     "optimist": "^0.6.1",
     "semver": "^5.0.3"
   }
