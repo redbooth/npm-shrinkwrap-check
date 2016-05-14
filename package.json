@@ -1,6 +1,6 @@
 {
   "name": "npm-shrinkwrap-check",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "description": "Checks that package.json and npm-shrinkwrap.json are always in sync.",
   "repository": {
     "type": "git",
