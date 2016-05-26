@@ -71,7 +71,7 @@ if (npm_major_version === '3' && !argv.v3) {
 
 // for npm@3
 if (argv.v3) {
-  glob.sync(process.cwd() + "/node_modules/**/package.json").forEach(function(pkgPath) {
+  glob.sync(process.cwd() + "/**/node_modules/*/package.json").forEach(function(pkgPath) {
     var pkg = loadJSON(pkgPath);
     var deps = Object.keys(pkg.dependencies || []);
     packageDeps = packageDeps.concat(deps);
