@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-var diff = require('array-difference'),
+var xor = require('lodash.xor'),
+    difference = require('lodash.difference'),
+    intersection = require('lodash.intersection'),
     glob = require('glob'),
     uniq = require('lodash.uniq'),
     chalk = require('chalk'),
@@ -13,9 +15,15 @@ var diff = require('array-difference'),
     packageJSON,
     shrinkwrapJSON,
     depDiff,
+    depDiffCount,
     packageDeps,
     shrinkwrapDeps,
-    packageDevDeps;
+    packageDevDeps,
+    packagePeerDeps,
+    packageOptionalDeps,
+    foundOptionalDeps = [],
+    foundPeerDeps = [],
+    ignoredDeps;
 
 function loadJSON(path) {
   if (!fs.existsSync(path)) {
@@ -32,6 +40,10 @@ function loadJSON(path) {
   }
 
   return json || null;
+}
+
+function readKeys(object) {
+  return Object.keys(object || {}) || [];
 }
 
 var npm_major_version = exec('npm -v').toString().match(/^(\d)\./)[1];
@@ -58,36 +70,85 @@ if (!packageJSON || !shrinkwrapJSON) {
   process.exit(1);
 }
 
-packageDeps = Object.keys(packageJSON.dependencies || []);
+packageDeps = uniq([].concat(
+  readKeys(packageJSON.dependencies),
+  argv.dev ? readKeys(packageJSON.devDependencies) : []
+));
 
-if (argv.dev) {
-  packageDevDeps = Object.keys(packageJSON.devDependencies || []);
-  packageDeps = packageDeps.concat(packageDevDeps);
-}
+packageOptionalDeps = readKeys(packageJSON.optionalDependencies);
+packagePeerDeps = readKeys(packageJSON.peerDependencies);
 
-if (npm_major_version === '3' && !argv.v3) {
-  console.warn(chalk.yellow('WARNING: Looks like you are using npm3, consider using -3 flag.\n'));
-}
+glob.sync(process.cwd() + "/**/node_modules/*/package.json").forEach(function(pkgPath) {
+  var pkg = loadJSON(pkgPath);
+  var thisPackageDeps = readKeys(pkg.dependencies);
 
-// for npm@3
-if (argv.v3) {
-  glob.sync(process.cwd() + "/**/node_modules/*/package.json").forEach(function(pkgPath) {
-    var pkg = loadJSON(pkgPath);
-    var deps = Object.keys(pkg.dependencies || []);
-    packageDeps = packageDeps.concat(deps);
-  });
+  var thisPackageOptionalDeps = readKeys(pkg.optionalDependencies);
+  var thisPackagePeerDeps = readKeys(pkg.peerDependencies);
+
+  var optionalButNotReallyOptionalDeps;
+  var peerButNotReallyPeerDeps;
+
+  if (argv.v3) {
+    packageDeps = packageDeps.concat(thisPackageDeps);
+  }
+
+  foundOptionalDeps = foundOptionalDeps.concat(thisPackageOptionalDeps);
+  foundPeerDeps = foundPeerDeps.concat(thisPackagePeerDeps);
+
+  optionalButNotReallyOptionalDeps = intersection(
+    foundOptionalDeps,
+    difference(thisPackageDeps, thisPackageOptionalDeps)
+  );
+
+  peerButNotReallypeerDeps = intersection(
+    foundPeerDeps,
+    difference(thisPackageDeps, thisPackagePeerDeps)
+  );
+
+  foundOptionalDeps = difference(foundOptionalDeps, optionalButNotReallyOptionalDeps);
+  foundPeerDeps = difference(foundPeerDeps, peerButNotReallyPeerDeps);
+});
+
+function walkDeps(node, acc) {
+  acc = acc || [];
+
+  if (node.dependencies) {
+    readKeys(node.dependencies).forEach(function (depName) {
+      var depNode = node.dependencies[depName];
+      acc.push(depName);
+      walkDeps(depNode, acc);
+    });
+  }
+
+  return uniq(acc);
 }
 
 packageDeps = uniq(packageDeps);
-shrinkwrapDeps = Object.keys(shrinkwrapJSON.dependencies || []);
+shrinkwrapDeps = argv.v3 ?
+                   walkDeps(shrinkwrapJSON) :
+                   readKeys(shrinkwrapJSON.dependencies);
 
-depDiff = diff(packageDeps, shrinkwrapDeps);
+foundOptionalDeps = uniq(foundOptionalDeps);
+foundPeerDeps = uniq(foundPeerDeps);
+ignoredDeps = uniq([].concat(
+  foundOptionalDeps,
+  foundPeerDeps,
+  packagePeerDeps,
+  packageOptionalDeps
+));
+
+// Removing optionalDeps
+packageDeps = difference(packageDeps, ignoredDeps);
+shrinkwrapDeps = difference(shrinkwrapDeps, ignoredDeps);
+
+depDiff = xor(packageDeps, shrinkwrapDeps);
+depDiffCount = Math.abs(depDiff.length);
 
 if (depDiff.length) {
   var notInShrinkwrap,
       notInPackage;
 
-  process.stderr.write('package.json and npm-shrinkwrap.json out of sync\n');
+  process.stderr.write(chalk.red('package.json and npm-shrinkwrap.json out of sync\n'));
 
   notInPackage = depDiff.filter(function(dependency) {
     return (packageDeps.indexOf(dependency) === -1);
@@ -98,16 +159,18 @@ if (depDiff.length) {
   });
 
   notInShrinkwrap.map(function (dependency) {
-    process.stderr.write(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json\n');
+    process.stderr.write(chalk.yellow(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json\n'));
   });
 
   notInPackage.map(function (dependency) {
-    process.stderr.write(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json\n');
+    process.stdout.write(chalk.yellow(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json\n'));
   });
+}  else {
+  process.stdout.write(chalk.green('OK! package.json and npm-shrinkwrap.json are in sync\n'));
 }
 
 packageDeps.forEach(function(dependency) {
-  var range = packageJSON.dependencies[dependency] ||
+  var range = (packageJSON.dependencies && packageJSON.dependencies[dependency]) ||
         (argv.dev && packageJSON.devDependencies && packageJSON.devDependencies[dependency]);
   if (!range) return; // sub dependencies
   var version = (shrinkwrapJSON.dependencies[dependency] || {}).version;
@@ -118,4 +181,16 @@ packageDeps.forEach(function(dependency) {
   }
 });
 
-process.exit(+(depDiff.length !== 0 || !semverSatisfied));
+[].concat(foundOptionalDeps, packageOptionalDeps).forEach(function (dependency) {
+  console.warn(chalk.yellow('WARN: skipping check for optional dependency ' + dependency));
+});
+
+[].concat(foundPeerDeps, packagePeerDeps).forEach(function (dependency) {
+  console.warn(chalk.yellow('WARN: skipping check for peer dependency ' + dependency));
+});
+
+if (npm_major_version === '3' && !argv.v3) {
+  console.warn(chalk.yellow('WARN: Looks like you are using npm3, consider using -3 flag.\n'));
+}
+
+process.exit(+(depDiffCount !== 0 || !semverSatisfied));
