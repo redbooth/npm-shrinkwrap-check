@@ -23,6 +23,17 @@ This will perform the following checks:
 * Both `package.json` and `npm-shrinkwrap.json` exist.
 * There are no dependencies in `package.json` that are **not** contained in `npm-shrinkwrap.json`
 
+options
+=======
+
+```
+Options:
+  -3, --v3       Perform check taking npm3 flat structure into account.
+  -d, --dev      Check devDependencies.
+  -h, --help     Show this help message.
+  -v, --version  Outputs version
+```
+
 add as git hook
 ===============
 
