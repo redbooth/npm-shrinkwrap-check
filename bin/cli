@@ -53,10 +53,17 @@ argv = optimist
   .alias('d', 'dev')
   .alias('h', 'help')
   .alias('3', 'v3')
+  .alias('v', 'version')
   .describe('3', 'Perform check taking npm3 flat structure into account.')
   .describe('d', 'Check devDependencies.')
   .describe('h', 'Show this help message.')
+  .describe('v', 'Outputs version')
   .argv;
+
+if (argv.v) {
+  process.stdout.write('npm-shrinwrap-check ' + loadJSON(__dirname + '/../package.json').version)
+  process.exit(0);
+}
 
 if (argv.help) {
   optimist.showHelp();
