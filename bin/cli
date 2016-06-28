@@ -5,6 +5,7 @@ var xor = require('lodash.xor'),
     intersection = require('lodash.intersection'),
     glob = require('glob'),
     uniq = require('lodash.uniq'),
+    every = require('lodash.every'),
     chalk = require('chalk'),
     fs = require('fs'),
     optimist = require('optimist'),
@@ -88,6 +89,18 @@ packagePeerDeps = readKeys(packageJSON.peerDependencies);
 glob.sync(process.cwd() + "/**/node_modules/*/package.json").forEach(function(pkgPath) {
   var pkg = loadJSON(pkgPath);
   var thisPackageDeps = readKeys(pkg.dependencies);
+  var isValidPath = every(
+                      pkgPath
+                        .replace(process.cwd(), '')
+                        .replace(/^\//, '')
+                        .split('/').map(function (segment, i) {
+                          return segment === 'node_modules' ? i % 2 === 0 : true
+                        })
+                    );
+
+  if (!isValidPath) {
+    return;
+  }
 
   var thisPackageOptionalDeps = readKeys(pkg.optionalDependencies);
   var thisPackagePeerDeps = readKeys(pkg.peerDependencies);
