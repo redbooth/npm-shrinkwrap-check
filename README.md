@@ -31,7 +31,8 @@ Options:
   -3, --v3       Perform check taking npm3 flat structure into account.
   -d, --dev      Check devDependencies.
   -h, --help     Show this help message.
-  -v, --version  Outputs version
+  -v, --verbose  Run in verbose mode
+  -V, --version  Outputs version
 ```
 
 add as git hook
