@@ -54,14 +54,16 @@ argv = optimist
   .alias('d', 'dev')
   .alias('h', 'help')
   .alias('3', 'v3')
-  .alias('v', 'version')
+  .alias('v', 'verbose')
+  .alias('V', 'version')
   .describe('3', 'Perform check taking npm3 flat structure into account.')
   .describe('d', 'Check devDependencies.')
   .describe('h', 'Show this help message.')
-  .describe('v', 'Outputs version')
+  .describe('v', 'Run in verbose mode')
+  .describe('V', 'Outputs version')
   .argv;
 
-if (argv.v) {
+if (argv.version) {
   process.stdout.write('npm-shrinwrap-check ' + loadJSON(__dirname + '/../package.json').version)
   process.exit(0);
 }
@@ -201,13 +203,15 @@ packageDeps.forEach(function(dependency) {
   }
 });
 
-[].concat(foundOptionalDeps, packageOptionalDeps).forEach(function (dependency) {
-  console.warn(chalk.yellow('WARN: skipping check for optional dependency ' + dependency));
-});
+if (argv.verbose) {
+  [].concat(foundOptionalDeps, packageOptionalDeps).forEach(function (dependency) {
+    console.warn(chalk.yellow('WARN: skipping check for optional dependency ' + dependency));
+  });
 
-[].concat(foundPeerDeps, packagePeerDeps).forEach(function (dependency) {
-  console.warn(chalk.yellow('WARN: skipping check for peer dependency ' + dependency));
-});
+  [].concat(foundPeerDeps, packagePeerDeps).forEach(function (dependency) {
+    console.warn(chalk.yellow('WARN: skipping check for peer dependency ' + dependency));
+  });
+}
 
 if (npm_major_version === '3' && !argv.v3) {
   console.warn(chalk.yellow('WARN: Looks like you are using npm3, consider using -3 flag.\n'));
