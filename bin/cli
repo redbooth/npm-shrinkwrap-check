@@ -88,7 +88,7 @@ packageDeps = uniq([].concat(
 packageOptionalDeps = readKeys(packageJSON.optionalDependencies);
 packagePeerDeps = readKeys(packageJSON.peerDependencies);
 
-glob.sync(process.cwd() + "/**/node_modules/*/package.json").forEach(function(pkgPath) {
+glob.sync(process.cwd() + "/**/node_modules/*/package.json", {follow: true}).forEach(function(pkgPath) {
   var pkg = loadJSON(pkgPath);
   var thisPackageDeps = readKeys(pkg.dependencies);
   var isValidPath = every(
