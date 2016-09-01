@@ -112,6 +112,10 @@ glob.sync(process.cwd() + "/**/node_modules/*/package.json", {follow: true}).for
 
   if (argv.v3) {
     packageDeps = packageDeps.concat(thisPackageDeps);
+
+    if (!!pkg.name) {
+      packageDeps = packageDeps.concat(pkg.name);
+    }
   }
 
   foundOptionalDeps = foundOptionalDeps.concat(thisPackageOptionalDeps);
