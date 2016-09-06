@@ -88,17 +88,26 @@ packageDeps = uniq([].concat(
 packageOptionalDeps = readKeys(packageJSON.optionalDependencies);
 packagePeerDeps = readKeys(packageJSON.peerDependencies);
 
+var thisNodeModulesPattern = new RegExp("^" + process.cwd() + "/node_modules");
+
 glob.sync(process.cwd() + "/**/node_modules/*/package.json", {follow: true}).forEach(function(pkgPath) {
   var pkg = loadJSON(pkgPath);
   var thisPackageDeps = readKeys(pkg.dependencies);
-  var isValidPath = every(
-                      pkgPath
-                        .replace(process.cwd(), '')
-                        .replace(/^\//, '')
-                        .split('/').map(function (segment, i) {
-                          return segment === 'node_modules' ? i % 2 === 0 : true
-                        })
-                    );
+  var isValidPath = (
+    every(
+      pkgPath
+        .replace(process.cwd(), '')
+        .replace(/^\//, '')
+        .split('/').map(function (segment, i) {
+          return segment === 'node_modules' ? i % 2 === 0 : true
+        })
+    ) &&
+    pkgPath.match(thisNodeModulesPattern)
+  );
+
+  //if (pkgPath.match(/caca/)) {
+    //debugger;
+  //}
 
   if (!isValidPath) {
     return;
