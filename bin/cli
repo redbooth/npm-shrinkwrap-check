@@ -222,36 +222,50 @@ ignoredDeps = uniq([].concat(
   foundExtraneousDeps
 ));
 
-// Removing optionalDeps
+// Removing ignoreDeps
 packageDeps = difference(packageDeps, ignoredDeps);
 shrinkwrapDeps = difference(shrinkwrapDeps, ignoredDeps);
 
 depDiff = xor(packageDeps, shrinkwrapDeps);
 depDiffCount = Math.abs(depDiff.length);
 
-if (depDiff.length) {
-  var notInShrinkwrap,
-      notInPackage;
+var messages = [];
 
-  process.stderr.write(chalk.red('package.json and npm-shrinkwrap.json out of sync\n'));
+function log(level, message) {
+  messages.push({level: level, message: message});
+}
 
-  notInPackage = depDiff.filter(function(dependency) {
-    return (packageDeps.indexOf(dependency) === -1);
+log.warn = log.bind(null, 'warn');
+log.error = log.bind(null, 'error');
+log.ok = log.bind(null, 'ok');
+
+var logOutOfSync = (function () {
+  var logged = false;
+
+  return function () {
+    if (!logged) {
+      log.error('package.json and npm-shrinkwrap.json out of sync');
+      logged = true;
+    }
+  }
+})()
+
+function printMessages(messages) {
+  messages.forEach(function (message) {
+    var level = message.level;
+    var message = message.message;
+
+    process[
+      level == 'ok' ? 'stdout' : 'stderr'
+    ].write(
+      chalk[{
+        ok: 'green',
+        warn: 'yellow',
+        error: 'red',
+      }[level] || 'grey'](message) + '\n'
+
+    );
   });
-
-  notInShrinkwrap = depDiff.filter(function(dependency) {
-    return (shrinkwrapDeps.indexOf(dependency) === -1);
-  });
-
-  notInShrinkwrap.map(function (dependency) {
-    process.stderr.write(chalk.yellow(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json\n'));
-  });
-
-  notInPackage.map(function (dependency) {
-    process.stdout.write(chalk.yellow(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json\n'));
-  });
-}  else {
-  process.stdout.write(chalk.green('OK! package.json and npm-shrinkwrap.json are in sync\n'));
 }
 
 packageDeps.forEach(function(dependency) {
@@ -262,26 +276,55 @@ packageDeps.forEach(function(dependency) {
 
   if (version && semver.validRange(range) && !semver.satisfies(version, range)) {
     semverSatisfied = false;
-    process.stderr.write(' * ' + dependency + '@' + version + ' in npm-shrinkwrap.json does not satisfy range ' + range + ' in package.json\n');
+    logOutOfSync();
+    log.warn(' * ' + dependency + '@' + version + ' in npm-shrinkwrap.json does not satisfy range ' + range + ' in package.json');
   }
 });
 
+if (depDiff.length) {
+  var notInShrinkwrap,
+      notInPackage;
+
+  logOutOfSync();
+
+  notInPackage = depDiff.filter(function(dependency) {
+    return (packageDeps.indexOf(dependency) === -1);
+  });
+
+  notInShrinkwrap = depDiff.filter(function(dependency) {
+    return (shrinkwrapDeps.indexOf(dependency) === -1);
+  });
+
+  notInShrinkwrap.map(function (dependency) {
+    log.warn(' * ' + dependency + ' found in package.json but not in npm-shrinkwrap.json');
+  });
+
+  notInPackage.map(function (dependency) {
+    log.warn(' * ' + dependency + ' found in npm-shrinkwrap.json but not in package.json');
+  });
+} else if(semverSatisfied) {
+  log.ok('OK! package.json and npm-shrinkwrap.json are in sync');
+}
+
+
 if (argv.verbose) {
   [].concat(foundOptionalDeps, packageOptionalDeps).forEach(function (dependency) {
-    console.warn(chalk.yellow('WARN: skipping check for optional dependency ' + dependency));
+    log.warn('WARN: skipping check for optional dependency ' + dependency);
   });
 
   [].concat(foundPeerDeps, packagePeerDeps).forEach(function (dependency) {
-    console.warn(chalk.yellow('WARN: skipping check for peer dependency ' + dependency));
+    log.warn('WARN: skipping check for peer dependency ' + dependency);
   });
 
   foundExtraneousDeps.forEach(function (dependency) {
-    console.warn(chalk.yellow('WARN: skipping check for extraneous dependency ' + dependency));
+    log.warn('WARN: skipping check for extraneous dependency ' + dependency);
   });
 }
 
 if (npm_major_version === '3' && !argv.v3) {
-  console.warn(chalk.yellow('WARN: Looks like you are using npm3, consider using -3 flag.\n'));
+  log.warn('WARN: Looks like you are using npm3, consider using -3 flag.');
 }
+
+printMessages(messages);
 
 process.exit(+(depDiffCount !== 0 || !semverSatisfied));
