@@ -6,6 +6,7 @@ var xor = require('lodash.xor'),
     glob = require('glob'),
     uniq = require('lodash.uniq'),
     every = require('lodash.every'),
+    assign = require('lodash.assign'),
     chalk = require('chalk'),
     fs = require('fs'),
     optimist = require('optimist'),
@@ -18,12 +19,14 @@ var xor = require('lodash.xor'),
     depDiff,
     depDiffCount,
     packageDeps,
+    originalPackageDeps,
     shrinkwrapDeps,
     packageDevDeps,
     packagePeerDeps,
     packageOptionalDeps,
     foundOptionalDeps = [],
     foundPeerDeps = [],
+    foundExtraneousDeps = [],
     ignoredDeps;
 
 function loadJSON(path) {
@@ -85,64 +88,116 @@ packageDeps = uniq([].concat(
   argv.dev ? readKeys(packageJSON.devDependencies) : []
 ));
 
+originalPackageDeps = [].concat(packageDeps);
+
 packageOptionalDeps = readKeys(packageJSON.optionalDependencies);
 packagePeerDeps = readKeys(packageJSON.peerDependencies);
 
 var thisNodeModulesPattern = new RegExp("^" + process.cwd() + "/node_modules");
 
-glob.sync(process.cwd() + "/**/node_modules/*/package.json", {follow: true}).forEach(function(pkgPath) {
-  var pkg = loadJSON(pkgPath);
-  var thisPackageDeps = readKeys(pkg.dependencies);
-  var isValidPath = (
-    every(
-      pkgPath
-        .replace(process.cwd(), '')
-        .replace(/^\//, '')
-        .split('/').map(function (segment, i) {
-          return segment === 'node_modules' ? i % 2 === 0 : true
-        })
-    ) &&
-    pkgPath.match(thisNodeModulesPattern)
-  );
+if (argv.v3) {
+  glob.sync(process.cwd() + "/**/node_modules/*/package.json", {follow: true}).forEach(function(pkgPath) {
+    var pkg = loadJSON(pkgPath);
+    var thisPackageDeps = readKeys(pkg.dependencies);
+    var isValidPath = (
+      every(
+        pkgPath
+          .replace(process.cwd(), '')
+          .replace(/^\//, '')
+          .split('/').map(function (segment, i) {
+            return segment === 'node_modules' ? i % 2 === 0 : true
+          })
+      ) &&
+      pkgPath.match(thisNodeModulesPattern)
+    );
 
-  //if (pkgPath.match(/caca/)) {
-    //debugger;
-  //}
-
-  if (!isValidPath) {
-    return;
-  }
-
-  var thisPackageOptionalDeps = readKeys(pkg.optionalDependencies);
-  var thisPackagePeerDeps = readKeys(pkg.peerDependencies);
-
-  var optionalButNotReallyOptionalDeps;
-  var peerButNotReallyPeerDeps;
-
-  if (argv.v3) {
-    packageDeps = packageDeps.concat(thisPackageDeps);
-
-    if (!!pkg.name) {
-      packageDeps = packageDeps.concat(pkg.name);
+    if (!isValidPath) {
+      return;
     }
+
+    var thisPackageOptionalDeps = readKeys(pkg.optionalDependencies);
+    var thisPackagePeerDeps = readKeys(pkg.peerDependencies);
+
+    var optionalButNotReallyOptionalDeps;
+    var peerButNotReallyPeerDeps;
+
+    if (argv.v3) {
+      packageDeps = packageDeps.concat(thisPackageDeps);
+
+      if (!!pkg.name) {
+        packageDeps = packageDeps.concat(pkg.name);
+      }
+    }
+
+    foundOptionalDeps = foundOptionalDeps.concat(thisPackageOptionalDeps);
+    foundPeerDeps = foundPeerDeps.concat(thisPackagePeerDeps);
+
+    optionalButNotReallyOptionalDeps = intersection(
+      foundOptionalDeps,
+      difference(thisPackageDeps, thisPackageOptionalDeps)
+    );
+
+    peerButNotReallypeerDeps = intersection(
+      foundPeerDeps,
+      difference(thisPackageDeps, thisPackagePeerDeps)
+    );
+
+    foundOptionalDeps = difference(foundOptionalDeps, optionalButNotReallyOptionalDeps);
+    foundPeerDeps = difference(foundPeerDeps, peerButNotReallyPeerDeps);
+  });
+
+
+  var npm_ls;
+
+  try {
+    npm_ls = JSON.parse(exec('npm ls --json 2> /dev/null || true'));
+  } catch (e) {
+    process.stderr.write("Could not parse JSON returned by 'npm ls --json'");
+    process.exit(1);
   }
 
-  foundOptionalDeps = foundOptionalDeps.concat(thisPackageOptionalDeps);
-  foundPeerDeps = foundPeerDeps.concat(thisPackagePeerDeps);
+  var topLevelExtraneousDeps = (
+    (npm_ls.problems || [])
+      .filter(function (problem) { return !!problem.match(/^extraneous:/) })
+      .map(function (problem) { return problem.match(/^extraneous: ([^@]+)@/)[1] })
+  )
 
-  optionalButNotReallyOptionalDeps = intersection(
-    foundOptionalDeps,
-    difference(thisPackageDeps, thisPackageOptionalDeps)
+  function belongsToExtraneous(node) {
+    if (!node) {
+      return false;
+    }
+
+    return (
+      topLevelExtraneousDeps.indexOf(node.__name) >= 0 ||
+      belongsToExtraneous(node.__parent)
+    )
+  }
+
+  visitDeps(npm_ls, function (node) {
+    if (belongsToExtraneous(node)) {
+      foundExtraneousDeps.push(node.__name);
+    }
+  });
+
+  foundExtraneousDeps = uniq(foundExtraneousDeps.concat(topLevelExtraneousDeps));
+}
+
+function visitDeps(node, visit, parent, key) {
+  var decoratedNode = assign(
+    {},
+    node,
+    {__parent: parent || null, __name: key || null}
   );
 
-  peerButNotReallypeerDeps = intersection(
-    foundPeerDeps,
-    difference(thisPackageDeps, thisPackagePeerDeps)
-  );
+  visit(decoratedNode)
 
-  foundOptionalDeps = difference(foundOptionalDeps, optionalButNotReallyOptionalDeps);
-  foundPeerDeps = difference(foundPeerDeps, peerButNotReallyPeerDeps);
-});
+  if (node.dependencies) {
+    readKeys(node.dependencies).forEach(function (depName) {
+      var depNode = node.dependencies[depName];
+      visitDeps(depNode, visit, decoratedNode, depName);
+    });
+  }
+}
 
 function walkDeps(node, acc) {
   acc = acc || [];
@@ -165,11 +220,17 @@ shrinkwrapDeps = argv.v3 ?
 
 foundOptionalDeps = uniq(foundOptionalDeps);
 foundPeerDeps = uniq(foundPeerDeps);
+foundExtraneousDeps = difference(
+  foundExtraneousDeps,
+  [].concat(shrinkwrapDeps, originalPackageDeps)
+);
+
 ignoredDeps = uniq([].concat(
   foundOptionalDeps,
   foundPeerDeps,
   packagePeerDeps,
-  packageOptionalDeps
+  packageOptionalDeps,
+  foundExtraneousDeps
 ));
 
 // Removing optionalDeps
@@ -223,6 +284,10 @@ if (argv.verbose) {
 
   [].concat(foundPeerDeps, packagePeerDeps).forEach(function (dependency) {
     console.warn(chalk.yellow('WARN: skipping check for peer dependency ' + dependency));
+  });
+
+  foundExtraneousDeps.forEach(function (dependency) {
+    console.warn(chalk.yellow('WARN: skipping check for extraneous dependency ' + dependency));
   });
 }
 
