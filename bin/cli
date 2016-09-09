@@ -118,9 +118,6 @@ if (argv.v3) {
     var thisPackageOptionalDeps = readKeys(pkg.optionalDependencies);
     var thisPackagePeerDeps = readKeys(pkg.peerDependencies);
 
-    var optionalButNotReallyOptionalDeps;
-    var peerButNotReallyPeerDeps;
-
     if (argv.v3) {
       packageDeps = packageDeps.concat(thisPackageDeps);
 
@@ -131,21 +128,7 @@ if (argv.v3) {
 
     foundOptionalDeps = foundOptionalDeps.concat(thisPackageOptionalDeps);
     foundPeerDeps = foundPeerDeps.concat(thisPackagePeerDeps);
-
-    optionalButNotReallyOptionalDeps = intersection(
-      foundOptionalDeps,
-      difference(thisPackageDeps, thisPackageOptionalDeps)
-    );
-
-    peerButNotReallypeerDeps = intersection(
-      foundPeerDeps,
-      difference(thisPackageDeps, thisPackagePeerDeps)
-    );
-
-    foundOptionalDeps = difference(foundOptionalDeps, optionalButNotReallyOptionalDeps);
-    foundPeerDeps = difference(foundPeerDeps, peerButNotReallyPeerDeps);
   });
-
 
   var npm_ls;
 
@@ -218,8 +201,14 @@ shrinkwrapDeps = argv.v3 ?
                    walkDeps(shrinkwrapJSON) :
                    readKeys(shrinkwrapJSON.dependencies);
 
-foundOptionalDeps = uniq(foundOptionalDeps);
-foundPeerDeps = uniq(foundPeerDeps);
+foundOptionalDeps = difference(
+  uniq(foundOptionalDeps),
+  [].concat(shrinkwrapDeps, originalPackageDeps)
+);
+foundPeerDeps = difference(
+  uniq(foundPeerDeps),
+  [].concat(shrinkwrapDeps, originalPackageDeps)
+);
 foundExtraneousDeps = difference(
   foundExtraneousDeps,
   [].concat(shrinkwrapDeps, originalPackageDeps)
