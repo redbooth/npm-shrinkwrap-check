@@ -1,3 +1,9 @@
+# DEPRECATION NOTICE
+
+This module is deprecated. If you want to painlessly lock your dependencies and
+check they are in sync you should use [yarn](https://github.com/yarnpkg/yarn)
+and pretend `npm shrinkwrap` ( and this module ) never existed.
+
 npm-shrinkwrap-check
 ====================
 
